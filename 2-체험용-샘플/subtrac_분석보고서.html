@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SubTrackr 사이트 분석 보고서</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+      background: #f5f6fa;
+      color: #2d3142;
+      line-height: 1.7;
+    }
+
+    /* 헤더 */
+    .report-header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: white;
+      padding: 52px 60px 44px;
+      position: relative;
+      overflow: hidden;
+    }
+    .report-header::before {
+      content: '';
+      position: absolute;
+      top: -80px; right: -80px;
+      width: 300px; height: 300px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+    }
+    .report-header::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; left: 200px;
+      width: 200px; height: 200px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.03);
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(99,179,237,0.25);
+      color: #90cdf4;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(144,205,244,0.3);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+    .report-header h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .report-header h1 span { color: #63b3ed; }
+    .report-header .meta {
+      font-size: 13px;
+      color: rgba(255,255,255,0.5);
+      margin-top: 16px;
+      display: flex;
+      gap: 24px;
+    }
+    .report-header .meta span::before { content: '• '; }
+
+    /* 요약 카드 */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .summary-card {
+      padding: 28px 24px;
+      border-right: 1px solid #e2e8f0;
+      text-align: center;
+    }
+    .summary-card:last-child { border-right: none; }
+    .summary-card .s-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: #2b6cb0;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .summary-card .s-label {
+      font-size: 11px;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* 본문 */
+    .container { max-width: 900px; margin: 0 auto; padding: 48px 24px; }
+
+    /* 섹션 */
+    .section {
+      background: white;
+      border-radius: 12px;
+      padding: 36px 40px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 1px solid #e8ecf0;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #edf2f7;
+    }
+    .section-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .section h2 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1a202c;
+    }
+    .section h2 .en {
+      font-size: 11px;
+      font-weight: 400;
+      color: #a0aec0;
+      margin-left: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* 색상 클래스 */
+    .blue   { background: #ebf8ff; color: #2b6cb0; }
+    .green  { background: #f0fff4; color: #276749; }
+    .purple { background: #faf5ff; color: #6b46c1; }
+    .orange { background: #fffaf0; color: #c05621; }
+    .pink   { background: #fff5f7; color: #97266d; }
+    .teal   { background: #e6fffa; color: #2c7a7b; }
+    .yellow { background: #fffff0; color: #975a16; }
+    .red    { background: #fff5f5; color: #c53030; }
+
+    p { font-size: 14px; color: #4a5568; margin-bottom: 12px; }
+    p:last-child { margin-bottom: 0; }
+    strong { color: #2d3748; }
+
+    /* 테이블 */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      margin-top: 4px;
+    }
+    th {
+      background: #f7fafc;
+      text-align: left;
+      padding: 10px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid #f0f4f8;
+      color: #4a5568;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f9fbfd; }
+    td:first-child { font-weight: 600; color: #2d3748; width: 36%; }
+
+    /* 태그 */
+    .tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      margin: 2px 3px 2px 0;
+    }
+    .tag-blue   { background: #ebf8ff; color: #2b6cb0; }
+    .tag-green  { background: #f0fff4; color: #276749; }
+    .tag-orange { background: #fffaf0; color: #c05621; }
+    .tag-purple { background: #faf5ff; color: #6b46c1; }
+    .tag-gray   { background: #f7fafc; color: #4a5568; border: 1px solid #e2e8f0; }
+
+    /* 강점/약점 그리드 */
+    .sw-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 4px;
+    }
+    .sw-box {
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .sw-box.strength { background: #f0fff4; border: 1px solid #c6f6d5; }
+    .sw-box.weakness { background: #fff5f5; border: 1px solid #fed7d7; }
+    .sw-box h3 {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sw-box.strength h3 { color: #276749; }
+    .sw-box.weakness h3 { color: #c53030; }
+    .sw-list {
+      list-style: none;
+      font-size: 13px;
+      color: #4a5568;
+    }
+    .sw-list li {
+      padding: 5px 0;
+      padding-left: 18px;
+      position: relative;
+    }
+    .sw-box.strength .sw-list li::before { content: '✓'; position: absolute; left: 0; color: #38a169; font-weight: 700; }
+    .sw-box.weakness .sw-list li::before { content: '✗'; position: absolute; left: 0; color: #e53e3e; font-weight: 700; }
+
+    /* 인사이트 박스 */
+    .insight {
+      background: linear-gradient(135deg, #667eea11, #764ba211);
+      border: 1px solid #c3b6e3;
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-top: 16px;
+    }
+    .insight-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #553c9a;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .insight p { color: #44337a; font-size: 13.5px; margin: 0; }
+
+    /* 평가 바 */
+    .rating-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .rating-label { width: 100px; color: #4a5568; font-size: 12px; flex-shrink: 0; }
+    .rating-bar-bg {
+      flex: 1;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .rating-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+    .rating-score { width: 36px; text-align: right; font-weight: 700; font-size: 12px; color: #2d3748; }
+
+    /* 푸터 */
+    .report-footer {
+      text-align: center;
+      padding: 32px;
+      color: #a0aec0;
+      font-size: 12px;
+      border-top: 1px solid #e2e8f0;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="report-header">
+  <div class="badge">Site Analysis Report</div>
+  <h1><span>SubTrackr</span> 사이트 분석 보고서</h1>
+  <p style="color:rgba(255,255,255,0.6); font-size:14px; margin-top:8px;">subtrac.kr | 구독 관리 서비스 | HELLOVR, INC.</p>
+  <div class="meta">
+    <span>분석일: 2026년 4월 1일</span>
+    <span>분석 대상: subtrac.kr</span>
+    <span>분석 방법: 웹 크롤링 + HTML 구조 분석</span>
+  </div>
+</div>
+
+<!-- 요약 카드 -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <span class="s-value">무료</span>
+    <span class="s-label">현재 요금제</span>
+  </div>
+  <div class="summary-card">
+    <span class="s-value">11개</span>
+    <span class="s-label">지원 언어</span>
+  </div>
+  <div class="summary-card">
+    <span class="s-value">130+</span>
+    <span class="s-label">지원 서비스</span>
+  </div>
+  <div class="summary-card">
+    <span class="s-value">4.8★</span>
+    <span class="s-label">스키마 평점</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- 1. 서비스 개요 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon blue">💡</div>
+      <h2>서비스 개요 <span class="en">Overview</span></h2>
+    </div>
+    <p><strong>SubTrackr</strong>는 HELLOVR, INC.가 개발한 AI 기반 구독 관리 서비스입니다. 경쟁 서비스와의 핵심 차별점은 <strong>은행 계좌 연동이나 이메일 접근 없이</strong> 사용자가 은행 명세서 스크린샷을 업로드하면 AI가 자동으로 구독 항목을 감지해주는 방식입니다.</p>
+    <p>핵심 워크플로우: <strong>스크린샷 업로드 → AI 자동 감지 → 대시보드에서 구독 관리</strong></p>
+    <p>Netflix, Spotify, Adobe, Apple, Google, 각종 AI 도구 등 130개 이상의 글로벌 서비스를 지원하며, 16개 통화와 11개 언어를 제공합니다. 한국 도메인(.kr)을 사용하지만 글로벌 확장을 목표로 구축된 제품입니다.</p>
+    <div class="insight">
+      <div class="insight-title">핵심 포지셔닝</div>
+      <p>"Stop giving your bank password to subscription trackers" — 개인정보 보호를 가장 앞세운 포지셔닝 전략. 경쟁사(Truebill, Rocket Money 등)의 주요 사용자 불안감을 정면으로 공략합니다.</p>
+    </div>
+  </div>
+
+  <!-- 2. 타겟 고객 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon green">🎯</div>
+      <h2>타겟 고객 분석 <span class="en">Target Audience</span></h2>
+    </div>
+    <table>
+      <tr>
+        <th>분류</th>
+        <th>세부 내용</th>
+      </tr>
+      <tr>
+        <td>주요 타겟</td>
+        <td>여러 디지털 구독 서비스를 이용하는 밀레니얼·Z세대</td>
+      </tr>
+      <tr>
+        <td>가치관 기준</td>
+        <td>은행 계좌 연동에 거부감이 있는 프라이버시 중시 사용자</td>
+      </tr>
+      <tr>
+        <td>니즈 기준</td>
+        <td>구독 과다 지출 또는 잊혀진 구독을 파악하고 싶은 사용자</td>
+      </tr>
+      <tr>
+        <td>주요 시장</td>
+        <td>한국 (1차), 아시아·서구권 (2차) — 총 11개 언어권</td>
+      </tr>
+      <tr>
+        <td>관심사 신호</td>
+        <td>블로그 주제(AI 도구, 스트리밍 스택)로 미루어 테크 관심도 높은 사용자</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 3. 핵심 기능 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon purple">⚙️</div>
+      <h2>핵심 기능 및 가치 제안 <span class="en">Features & Value Props</span></h2>
+    </div>
+    <table>
+      <tr>
+        <th>기능</th>
+        <th>상세</th>
+      </tr>
+      <tr>
+        <td>AI 스크린샷 분석</td>
+        <td>은행 명세서 이미지 업로드 시 AI가 구독 항목 자동 감지 (1일 10회 무료)</td>
+      </tr>
+      <tr>
+        <td>구독 대시보드</td>
+        <td>갱신일, 총 지출액, 서비스별 현황을 한눈에 확인</td>
+      </tr>
+      <tr>
+        <td>글로벌 서비스 지원</td>
+        <td>Netflix, Spotify, Adobe, Apple, Google, ChatGPT 등 130+ 서비스</td>
+      </tr>
+      <tr>
+        <td>다국어/다통화</td>
+        <td>11개 언어, 16개 통화 지원</td>
+      </tr>
+      <tr>
+        <td>크로스 디바이스 동기화</td>
+        <td>로그인 계정 기반 멀티 디바이스 접근</td>
+      </tr>
+      <tr>
+        <td>PWA</td>
+        <td>모바일 홈 화면 설치 지원 (네이티브 앱 대체)</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 4. 수익 모델 & 가격 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon orange">💰</div>
+      <h2>수익 모델 및 가격 구조 <span class="en">Monetization & Pricing</span></h2>
+    </div>
+    <p>현재 공식적으로 발표된 요금은 <strong>무료($0)</strong>입니다. 단, 다음과 같은 신호들이 프리미엄 전환을 암시합니다.</p>
+    <table>
+      <tr>
+        <th>항목</th>
+        <th>내용</th>
+        <th>의미</th>
+      </tr>
+      <tr>
+        <td>광고 (Google AdSense)</td>
+        <td>ca-pub-6288959995887297 연동</td>
+        <td>현재 광고 기반 무료 수익 모델 확인</td>
+      </tr>
+      <tr>
+        <td>AI 스캔 한도</td>
+        <td>1일 10회 무료 (블로그에서 확인)</td>
+        <td>유료 무제한 플랜 가능성 시사</td>
+      </tr>
+      <tr>
+        <td>/refund 페이지 존재</td>
+        <td>환불 정책 페이지 별도 운영</td>
+        <td>유료 거래가 발생하거나 계획 중임을 의미</td>
+      </tr>
+    </table>
+    <div class="insight">
+      <div class="insight-title">분석 의견</div>
+      <p>광고 수익 + 무료 티어로 사용자를 확보한 후, AI 스캔 무제한·고급 리포트 등 프리미엄 기능으로 전환하는 <strong>Freemium 전략</strong>이 준비된 것으로 판단됩니다.</p>
+    </div>
+  </div>
+
+  <!-- 5. 기술 스택 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon teal">🛠️</div>
+      <h2>기술 스택 <span class="en">Tech Stack</span></h2>
+    </div>
+    <table>
+      <tr>
+        <th>레이어</th>
+        <th>기술</th>
+      </tr>
+      <tr>
+        <td>프레임워크</td>
+        <td>Next.js (React) — SSR + 클라이언트 하이드레이션</td>
+      </tr>
+      <tr>
+        <td>호스팅</td>
+        <td>Vercel 추정 (Next.js 표준 배포 환경)</td>
+      </tr>
+      <tr>
+        <td>수익화</td>
+        <td>Google AdSense</td>
+      </tr>
+      <tr>
+        <td>SEO</td>
+        <td>Google Search Console + Naver 검색 등록 (한국 시장 SEO 투자 확인)</td>
+      </tr>
+      <tr>
+        <td>소셜 공유</td>
+        <td>Open Graph, Twitter Cards 메타데이터 완비</td>
+      </tr>
+      <tr>
+        <td>PWA</td>
+        <td>manifest.json + 앱 아이콘 구성</td>
+      </tr>
+      <tr>
+        <td>구조화 데이터</td>
+        <td>Schema.org (WebApplication, Organization, AggregateRating, Offer)</td>
+      </tr>
+      <tr>
+        <td>다국어</td>
+        <td>Next.js i18n 라우팅 (hreflang 11개 로케일)</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 6. 콘텐츠 & SEO 전략 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon yellow">📝</div>
+      <h2>콘텐츠 & SEO 전략 <span class="en">Content & SEO</span></h2>
+    </div>
+    <p>블로그는 <strong>SEO 유입 깔때기</strong> 역할을 하며, 2026년 1~2월에 집중 발행되었습니다. 모든 글은 "SubTrackr Team" 작성이며, 각 글 말미에 제품 CTA가 삽입되어 있습니다.</p>
+    <table>
+      <tr>
+        <th>콘텐츠 유형</th>
+        <th>기사 제목</th>
+        <th>SEO 전략</th>
+      </tr>
+      <tr>
+        <td>How-to 가이드</td>
+        <td>넷플릭스 해지 방법</td>
+        <td>고검색량 브랜드명 키워드 공략</td>
+      </tr>
+      <tr>
+        <td>비교 콘텐츠</td>
+        <td>ChatGPT vs Claude 비교</td>
+        <td>초고트래픽 AI 키워드로 상위 노출</td>
+      </tr>
+      <tr>
+        <td>스트리밍 비교</td>
+        <td>2026 스트리밍 서비스 비교</td>
+        <td>구독 결정 전 정보 탐색 니즈 포착</td>
+      </tr>
+      <tr>
+        <td>절약 팁</td>
+        <td>숨겨진 구독 찾는 법, 절약 팁</td>
+        <td>제품 핵심 기능과 직결된 키워드</td>
+      </tr>
+    </table>
+    <div class="insight">
+      <div class="insight-title">주목할 점</div>
+      <p>ChatGPT vs Claude 비교 글은 구독 추적과 직접 관련이 없지만 AI 관심 독자를 상위 퍼널로 끌어들이는 전략적 선택입니다. 초기 단계 스타트업에서 보기 드문 수준의 콘텐츠 마케팅 전략 성숙도를 보여줍니다.</p>
+    </div>
+  </div>
+
+  <!-- 7. 신뢰 신호 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon pink">🔒</div>
+      <h2>신뢰 신호 분석 <span class="en">Trust Signals</span></h2>
+    </div>
+    <div class="sw-grid">
+      <div class="sw-box strength">
+        <h3>✅ 긍정적 신뢰 요소</h3>
+        <ul class="sw-list">
+          <li>Schema.org 기준 4.8/5점 (120개 리뷰)</li>
+          <li>130+ 글로벌 서비스 로고 연동</li>
+          <li>"은행 로그인 불필요" 명시적 프라이버시 보장</li>
+          <li>Google·Naver Search Console 인증</li>
+          <li>법인명(HELLOVR, INC.) 공개</li>
+          <li>활성 블로그 (2026년 1~2월 발행)</li>
+          <li>11개 언어 — 글로벌 투자 규모 증명</li>
+        </ul>
+      </div>
+      <div class="sw-box weakness">
+        <h3>⚠️ 부족한 신뢰 요소</h3>
+        <ul class="sw-list">
+          <li>팀/창업자 소개 페이지 없음</li>
+          <li>About 페이지 없음</li>
+          <li>120개 리뷰 출처 플랫폼 미명시</li>
+          <li>언론 보도·미디어 언급 없음</li>
+          <li>HELLOVR, INC. 외부 정보 부재</li>
+          <li>고객 사례/인터뷰 없음</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. 종합 평가 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon red">📊</div>
+      <h2>종합 평가 <span class="en">Overall Assessment</span></h2>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      <div class="rating-row">
+        <span class="rating-label">제품 차별성</span>
+        <div class="rating-bar-bg"><div class="rating-bar-fill" style="width:90%; background: linear-gradient(90deg,#667eea,#764ba2);"></div></div>
+        <span class="rating-score">9/10</span>
+      </div>
+      <div class="rating-row">
+        <span class="rating-label">콘텐츠 전략</span>
+        <div class="rating-bar-bg"><div class="rating-bar-fill" style="width:85%; background: linear-gradient(90deg,#43e97b,#38f9d7);"></div></div>
+        <span class="rating-score">8.5/10</span>
+      </div>
+      <div class="rating-row">
+        <span class="rating-label">글로벌 확장성</span>
+        <div class="rating-bar-bg"><div class="rating-bar-fill" style="width:85%; background: linear-gradient(90deg,#4facfe,#00f2fe);"></div></div>
+        <span class="rating-score">8.5/10</span>
+      </div>
+      <div class="rating-row">
+        <span class="rating-label">신뢰 신호</span>
+        <div class="rating-bar-bg"><div class="rating-bar-fill" style="width:55%; background: linear-gradient(90deg,#f093fb,#f5576c);"></div></div>
+        <span class="rating-score">5.5/10</span>
+      </div>
+      <div class="rating-row">
+        <span class="rating-label">수익 모델 명확성</span>
+        <div class="rating-bar-bg"><div class="rating-bar-fill" style="width:50%; background: linear-gradient(90deg,#fa709a,#fee140);"></div></div>
+        <span class="rating-score">5/10</span>
+      </div>
+      <div class="rating-row">
+        <span class="rating-label">기술 완성도</span>
+        <div class="rating-bar-bg"><div class="rating-bar-fill" style="width:80%; background: linear-gradient(90deg,#f77f00,#fcbf49);"></div></div>
+        <span class="rating-score">8/10</span>
+      </div>
+    </div>
+
+    <div class="insight">
+      <div class="insight-title">총평</div>
+      <p>SubTrackr는 <strong>경쟁사의 주요 약점(개인정보 침해 우려)을 핵심 차별점으로 전환한 영리한 포지셔닝</strong>을 갖춘 서비스입니다. 한국 기반이지만 처음부터 글로벌을 염두에 두고 설계된 제품이며, 콘텐츠 마케팅 전략도 초기 스타트업 수준을 넘어섭니다. 팀/회사 신뢰도 구축과 수익 모델의 명시적 공개가 향후 성장의 핵심 과제입니다.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="report-footer">
+  분석일 2026-04-01 · subtrac.kr · 본 보고서는 공개 웹 데이터 기반 분석입니다
+</div>
+
+</body>
+</html>

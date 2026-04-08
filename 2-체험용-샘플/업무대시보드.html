@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>업무 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --surface2:#1c2230; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --green:#3fb950;
+    --yellow:#d29922; --red:#f85149; --purple:#bc8cff; --orange:#ffa657; --teal:#39d353;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif; font-size:14px; min-height:100vh; display:flex; }
+
+  /* ── 사이드바 ── */
+  .sidebar { width:220px; min-height:100vh; background:var(--surface); border-right:1px solid var(--border); padding:24px 0; flex-shrink:0; display:flex; flex-direction:column; }
+  .sidebar-logo { padding:0 20px 24px; border-bottom:1px solid var(--border); }
+  .logo-text { font-size:17px; font-weight:800; letter-spacing:-0.5px; }
+  .logo-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+  .sidebar-nav { padding:16px 12px; flex:1; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; cursor:pointer; color:var(--muted); font-size:13px; transition:all 0.15s; margin-bottom:2px; user-select:none; }
+  .nav-item:hover { background:var(--surface2); color:var(--text); }
+  .nav-item.active { background:rgba(88,166,255,0.12); color:var(--accent); }
+  .nav-icon { font-size:15px; width:20px; text-align:center; }
+  .sidebar-date { padding:16px 20px; border-top:1px solid var(--border); color:var(--muted); font-size:12px; }
+  .today-label { font-weight:700; color:var(--text); font-size:13px; margin-bottom:2px; }
+
+  /* ── 메인 ── */
+  .main { flex:1; overflow-y:auto; padding:28px 32px; }
+  .page { display:none; }
+  .page.active { display:block; }
+  .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:28px; }
+  .page-header h1 { font-size:20px; font-weight:700; }
+  .greeting { font-size:13px; color:var(--muted); margin-top:3px; }
+  .avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#58a6ff,#bc8cff); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:white; }
+
+  /* ── KPI ── */
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; position:relative; overflow:hidden; }
+  .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+  .kpi-card.blue::before { background:var(--accent); }
+  .kpi-card.green::before { background:var(--green); }
+  .kpi-card.yellow::before { background:var(--yellow); }
+  .kpi-card.purple::before { background:var(--purple); }
+  .kpi-card.red::before { background:var(--red); }
+  .kpi-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px; }
+  .kpi-value { font-size:24px; font-weight:800; line-height:1; }
+  .kpi-sub { font-size:11px; color:var(--muted); margin-top:6px; }
+  .kpi-icon { position:absolute; right:16px; top:16px; font-size:22px; opacity:0.3; }
+
+  /* ── 레이아웃 ── */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+  .grid-3 { display:grid; grid-template-columns:1.4fr 1fr; gap:20px; margin-bottom:20px; }
+
+  /* ── 카드 ── */
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:22px; }
+  .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+  .card-title { font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .card-badge { font-size:11px; padding:3px 8px; border-radius:12px; font-weight:600; }
+  .badge-blue   { background:rgba(88,166,255,0.15); color:var(--accent); }
+  .badge-green  { background:rgba(63,185,80,0.15);  color:var(--green); }
+  .badge-yellow { background:rgba(210,153,34,0.15); color:var(--yellow); }
+  .badge-red    { background:rgba(248,81,73,0.15);  color:var(--red); }
+  .badge-purple { background:rgba(188,140,255,0.15); color:var(--purple); }
+
+  /* ── 할 일 ── */
+  .todo-input-row { display:flex; gap:8px; margin-bottom:16px; }
+  .todo-input { flex:1; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:9px 14px; color:var(--text); font-size:13px; font-family:inherit; outline:none; transition:border-color 0.15s; }
+  .todo-input:focus { border-color:var(--accent); }
+  .todo-input::placeholder { color:var(--muted); }
+  .priority-select { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:9px 10px; color:var(--muted); font-size:12px; font-family:inherit; outline:none; cursor:pointer; }
+  .add-btn { background:var(--accent); color:white; border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; transition:opacity 0.15s; white-space:nowrap; }
+  .add-btn:hover { opacity:0.85; }
+  .todo-list { display:flex; flex-direction:column; gap:6px; }
+  .todo-item { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--surface2); border-radius:8px; border:1px solid transparent; transition:all 0.15s; }
+  .todo-item:hover { border-color:var(--border); }
+  .todo-item.done { opacity:0.45; }
+  .todo-item.done .todo-text { text-decoration:line-through; color:var(--muted); }
+  .todo-check { width:18px; height:18px; border-radius:5px; border:2px solid var(--border); flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; font-size:11px; color:white; }
+  .todo-check.checked { background:var(--green); border-color:var(--green); }
+  .todo-text { flex:1; font-size:13px; line-height:1.4; }
+  .todo-meta { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .priority-dot { width:7px; height:7px; border-radius:50%; }
+  .p-high { background:var(--red); } .p-medium { background:var(--yellow); } .p-low { background:var(--green); }
+  .assignee { font-size:11px; color:var(--muted); }
+  .del-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; padding:2px 4px; border-radius:4px; transition:color 0.15s; opacity:0; }
+  .todo-item:hover .del-btn { opacity:1; }
+  .del-btn:hover { color:var(--red); }
+
+  /* ── 필터 탭 ── */
+  .filter-tabs { display:flex; gap:6px; margin-bottom:14px; }
+  .filter-tab { padding:5px 12px; border-radius:20px; font-size:12px; cursor:pointer; border:1px solid var(--border); color:var(--muted); background:transparent; font-family:inherit; transition:all 0.15s; }
+  .filter-tab.on { background:rgba(88,166,255,0.15); color:var(--accent); border-color:var(--accent); }
+
+  /* ── 프로젝트 ── */
+  .project-list { display:flex; flex-direction:column; gap:14px; }
+  .project-item {}
+  .project-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+  .project-name { font-size:13px; font-weight:600; }
+  .project-pct { font-size:12px; color:var(--muted); font-weight:700; }
+  .progress-bar-bg { height:7px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+  .progress-bar-fill { height:100%; border-radius:4px; transition:width 0.6s ease; }
+  .project-sub { font-size:11px; color:var(--muted); margin-top:5px; }
+
+  /* 프로젝트 전체 뷰 카드 */
+  .proj-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:12px; }
+  .proj-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; }
+  .proj-card-title { font-size:15px; font-weight:700; }
+  .proj-card-status { font-size:11px; padding:3px 10px; border-radius:12px; font-weight:600; }
+  .status-on    { background:rgba(88,166,255,0.15); color:var(--accent); }
+  .status-warn  { background:rgba(210,153,34,0.15); color:var(--yellow); }
+  .status-early { background:rgba(63,185,80,0.15);  color:var(--green); }
+  .proj-meta { display:flex; gap:20px; margin-top:12px; }
+  .proj-meta-item { font-size:12px; color:var(--muted); }
+  .proj-meta-item span { color:var(--text); font-weight:600; }
+
+  /* ── 주간 일정 ── */
+  .week-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
+  .day-col {}
+  .day-header { text-align:center; margin-bottom:8px; }
+  .day-name { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; }
+  .day-num { font-size:16px; font-weight:700; color:var(--muted); line-height:1.4; }
+  .day-col.today .day-num { color:white; background:var(--accent); width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; margin:0 auto; }
+  .day-col.today .day-name { color:var(--accent); }
+  .event-card { background:var(--surface2); border-radius:6px; padding:7px 9px; margin-bottom:5px; border-left:3px solid var(--accent); font-size:11px; line-height:1.4; }
+  .event-card.ev-green  { border-left-color:var(--green); }
+  .event-card.ev-yellow { border-left-color:var(--yellow); }
+  .event-card.ev-red    { border-left-color:var(--red); }
+  .event-card.ev-purple { border-left-color:var(--purple); }
+  .event-title { font-weight:600; color:var(--text); }
+  .event-time  { color:var(--muted); font-size:10px; margin-top:2px; }
+
+  /* ── 매출 ── */
+  .sales-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .sales-mini { background:var(--surface2); border-radius:10px; padding:14px 16px; border:1px solid var(--border); }
+  .sales-mini-label { font-size:11px; color:var(--muted); margin-bottom:6px; }
+  .sales-mini-value { font-size:18px; font-weight:800; }
+  .sales-mini-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+  .trend-up { color:var(--green); }
+  .chart-wrap { position:relative; height:170px; }
+
+  /* ── 팀 ── */
+  .team-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  .member-card { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:18px; }
+  .member-top { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .member-avatar { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; color:white; flex-shrink:0; }
+  .member-name { font-size:14px; font-weight:700; }
+  .member-role { font-size:11px; color:var(--muted); margin-top:2px; }
+  .member-tasks { display:flex; flex-direction:column; gap:5px; }
+  .member-task { font-size:12px; color:var(--muted); padding:5px 10px; background:var(--surface); border-radius:6px; }
+  .member-task.done { text-decoration:line-through; opacity:0.5; }
+
+  /* ── 설정 ── */
+  .settings-section { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:16px; }
+  .settings-title { font-size:15px; font-weight:700; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+  .setting-row { display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #21262d; }
+  .setting-row:last-child { border-bottom:none; }
+  .setting-label { font-size:13px; }
+  .setting-desc { font-size:11px; color:var(--muted); margin-top:3px; }
+  .toggle { width:40px; height:22px; background:var(--border); border-radius:11px; cursor:pointer; position:relative; transition:background 0.2s; flex-shrink:0; }
+  .toggle.on { background:var(--accent); }
+  .toggle::after { content:''; position:absolute; width:16px; height:16px; background:white; border-radius:50%; top:3px; left:3px; transition:left 0.2s; }
+  .toggle.on::after { left:21px; }
+  .setting-select { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:6px 10px; color:var(--text); font-size:12px; font-family:inherit; outline:none; }
+
+  /* ── 매출 분석 전용 ── */
+  .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+  .region-bar-item { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .region-name { width:40px; font-size:12px; color:var(--muted); flex-shrink:0; }
+  .region-bar-bg { flex:1; height:10px; background:var(--surface2); border-radius:5px; overflow:hidden; }
+  .region-bar-fill { height:100%; border-radius:5px; }
+  .region-val { width:70px; font-size:12px; font-weight:700; text-align:right; }
+
+  /* 스크롤바 */
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+  @media (max-width:900px) {
+    .grid-2,.grid-3,.chart-grid { grid-template-columns:1fr; }
+    .kpi-row { grid-template-columns:repeat(2,1fr); }
+    .week-grid { grid-template-columns:repeat(4,1fr); }
+    .team-grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── 사이드바 ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-text">📋 WorkBoard</div>
+    <div class="logo-sub">마케팅팀 대시보드</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" data-page="dashboard"><span class="nav-icon">⚡</span> 대시보드</div>
+    <div class="nav-item" data-page="todo"><span class="nav-icon">✅</span> 할 일 관리</div>
+    <div class="nav-item" data-page="sales"><span class="nav-icon">📊</span> 매출 분석</div>
+    <div class="nav-item" data-page="project"><span class="nav-icon">📁</span> 프로젝트</div>
+    <div class="nav-item" data-page="calendar"><span class="nav-icon">📅</span> 캘린더</div>
+    <div class="nav-item" data-page="team"><span class="nav-icon">👥</span> 팀 현황</div>
+    <div class="nav-item" data-page="settings"><span class="nav-icon">⚙️</span> 설정</div>
+  </nav>
+  <div class="sidebar-date">
+    <div class="today-label" id="sidebar-date"></div>
+    <div id="sidebar-time"></div>
+  </div>
+</aside>
+
+<!-- ── 메인 ── -->
+<main class="main">
+
+  <!-- ════ 대시보드 ════ -->
+  <section class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div>
+        <h1>안녕하세요, 정팀장님 👋</h1>
+        <div class="greeting">마케팅팀 주간 업무 현황 · 3월 9일 회의 기반</div>
+      </div>
+      <div class="avatar">정</div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card blue"><div class="kpi-icon">💰</div><div class="kpi-label">총 매출</div><div class="kpi-value">7,100<span style="font-size:14px;font-weight:400;">만원</span></div><div class="kpi-sub">2026년 1~2월 누계</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-label">완료 할 일</div><div class="kpi-value" id="kpi-done">-</div><div class="kpi-sub">오늘 기준</div></div>
+      <div class="kpi-card yellow"><div class="kpi-icon">🚀</div><div class="kpi-label">진행 중 프로젝트</div><div class="kpi-value">5</div><div class="kpi-sub">평균 진행률 39%</div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">🏆</div><div class="kpi-label">베스트 제품</div><div class="kpi-value" style="font-size:16px;">무선이어폰</div><div class="kpi-sub">매출 비중 40.6%</div></div>
+    </div>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span>✅</span> 오늘 할 일</div><span class="card-badge badge-blue" id="dash-todo-count">-</span></div>
+        <div class="todo-input-row">
+          <input class="todo-input" id="dash-todo-input" placeholder="새 할 일 입력..." type="text">
+          <select class="priority-select" id="dash-priority">
+            <option value="high">🔴 높음</option>
+            <option value="medium" selected>🟡 중간</option>
+            <option value="low">🟢 낮음</option>
+          </select>
+          <button class="add-btn" onclick="addTodo('dash')">추가</button>
+        </div>
+        <div class="todo-list" id="dash-todo-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span>📁</span> 프로젝트 진행률</div><span class="card-badge badge-yellow">5개</span></div>
+        <div class="project-list" id="dash-project-list"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header"><div class="card-title"><span>📅</span> 이번 주 일정</div><span class="card-badge badge-green">3/30 ~ 4/5</span></div>
+      <div class="week-grid" id="week-grid"></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span>📊</span> 제품별 매출</div><span class="card-badge badge-blue">2026 1~2월</span></div>
+        <div class="chart-wrap"><canvas id="salesChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span>📈</span> 매출 현황 요약</div></div>
+        <div class="sales-grid">
+          <div class="sales-mini"><div class="sales-mini-label">1월 매출</div><div class="sales-mini-value" style="color:var(--accent);">4,650만원</div><div class="sales-mini-sub">7회 판매일</div></div>
+          <div class="sales-mini"><div class="sales-mini-label">2월 매출 (1~10일)</div><div class="sales-mini-value" style="color:var(--purple);">2,451만원</div><div class="sales-mini-sub trend-up">↑ 일평균 23% 성장</div></div>
+          <div class="sales-mini"><div class="sales-mini-label">서울 매출</div><div class="sales-mini-value" style="color:var(--green);">4,128만원</div><div class="sales-mini-sub">전체 비중 58.1%</div></div>
+          <div class="sales-mini"><div class="sales-mini-label">전자기기 비중</div><div class="sales-mini-value" style="color:var(--orange);">75.1%</div><div class="sales-mini-sub">5,332만원</div></div>
+        </div>
+        <div class="chart-wrap" style="height:100px;"><canvas id="trendChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ 할 일 관리 ════ -->
+  <section class="page" id="page-todo">
+    <div class="page-header">
+      <div><h1>✅ 할 일 관리</h1><div class="greeting">우선순위별 전체 업무 목록</div></div>
+      <div class="avatar">정</div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-label">전체</div><div class="kpi-value" id="t-total">-</div><div class="kpi-sub">등록된 할 일</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-label">완료</div><div class="kpi-value" id="t-done">-</div><div class="kpi-sub">처리 완료</div></div>
+      <div class="kpi-card yellow"><div class="kpi-icon">⏳</div><div class="kpi-label">진행 중</div><div class="kpi-value" id="t-going">-</div><div class="kpi-sub">처리 중</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">🔴</div><div class="kpi-label">높은 우선순위</div><div class="kpi-value" id="t-high">-</div><div class="kpi-sub">즉시 처리 필요</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span>📝</span> 할 일 목록</div></div>
+      <div class="todo-input-row">
+        <input class="todo-input" id="todo-input2" placeholder="새 할 일 입력..." type="text">
+        <select class="priority-select" id="priority-select2">
+          <option value="high">🔴 높음</option>
+          <option value="medium" selected>🟡 중간</option>
+          <option value="low">🟢 낮음</option>
+        </select>
+        <button class="add-btn" onclick="addTodo('full')">+ 추가</button>
+      </div>
+      <div class="filter-tabs">
+        <button class="filter-tab on" onclick="filterTodo('all',this)">전체</button>
+        <button class="filter-tab" onclick="filterTodo('high',this)">🔴 높음</button>
+        <button class="filter-tab" onclick="filterTodo('medium',this)">🟡 중간</button>
+        <button class="filter-tab" onclick="filterTodo('low',this)">🟢 낮음</button>
+        <button class="filter-tab" onclick="filterTodo('done',this)">✅ 완료</button>
+      </div>
+      <div class="todo-list" id="full-todo-list"></div>
+    </div>
+  </section>
+
+  <!-- ════ 매출 분석 ════ -->
+  <section class="page" id="page-sales">
+    <div class="page-header">
+      <div><h1>📊 매출 분석</h1><div class="greeting">2026년 1월 5일 ~ 2월 10일 · CSV 데이터 기반</div></div>
+      <div class="avatar">정</div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card blue"><div class="kpi-icon">💰</div><div class="kpi-label">총 매출</div><div class="kpi-value">7,101<span style="font-size:14px;font-weight:400;">만원</span></div><div class="kpi-sub">71,006,000원</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">📦</div><div class="kpi-label">총 판매 수량</div><div class="kpi-value">1,664<span style="font-size:14px;font-weight:400;">개</span></div><div class="kpi-sub">30건 거래</div></div>
+      <div class="kpi-card yellow"><div class="kpi-icon">📍</div><div class="kpi-label">최고 매출 지역</div><div class="kpi-value" style="font-size:18px;">서울</div><div class="kpi-sub">비중 58.1%</div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">⭐</div><div class="kpi-label">최고 매출 제품</div><div class="kpi-value" style="font-size:15px;">무선이어폰</div><div class="kpi-sub">28,836,000원</div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span>📊</span> 제품별 매출액</div><span class="card-badge badge-blue">만원</span></div>
+        <div class="chart-wrap"><canvas id="salesChart2"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span>🥧</span> 카테고리 비중</div></div>
+        <div class="chart-wrap"><canvas id="catChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span>📈</span> 날짜별 매출 추이</div></div>
+        <div class="chart-wrap"><canvas id="trendChart2"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span>📍</span> 지역별 매출</div></div>
+        <div style="margin-top:8px;">
+          <div class="region-bar-item">
+            <span class="region-name">서울</span>
+            <div class="region-bar-bg"><div class="region-bar-fill" style="width:58.1%;background:var(--accent);"></div></div>
+            <span class="region-val" style="color:var(--accent);">4,128만</span>
+          </div>
+          <div class="region-bar-item">
+            <span class="region-name">대구</span>
+            <div class="region-bar-bg"><div class="region-bar-fill" style="width:22.4%;background:var(--orange);"></div></div>
+            <span class="region-val" style="color:var(--orange);">1,591만</span>
+          </div>
+          <div class="region-bar-item">
+            <span class="region-name">부산</span>
+            <div class="region-bar-bg"><div class="region-bar-fill" style="width:19.5%;background:var(--purple);"></div></div>
+            <span class="region-val" style="color:var(--purple);">1,382만</span>
+          </div>
+        </div>
+        <div style="margin-top:24px;">
+          <div class="card-title" style="margin-bottom:14px;font-size:13px;"><span>📦</span> 수량 vs 매출 비교</div>
+          <div style="font-size:12px; color:var(--muted);">
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #21262d;">
+              <span>무선이어폰</span><span>324개 → <strong style="color:var(--text);">2,884만원</strong></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #21262d;">
+              <span>텀블러</span><span>461개 → <strong style="color:var(--text);">1,153만원</strong></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #21262d;">
+              <span>에코백</span><span>411개 → <strong style="color:var(--text);">617만원</strong></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #21262d;">
+              <span>보조배터리</span><span>258개 → <strong style="color:var(--text);">903만원</strong></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #21262d;">
+              <span>블루투스 스피커</span><span>80개 → <strong style="color:var(--text);">960만원</strong></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;">
+              <span>무선 충전기</span><span>130개 → <strong style="color:var(--text);">585만원</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ 프로젝트 ════ -->
+  <section class="page" id="page-project">
+    <div class="page-header">
+      <div><h1>📁 프로젝트 현황</h1><div class="greeting">마케팅팀 진행 중 프로젝트 · 회의록 기반</div></div>
+      <div class="avatar">정</div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card blue"><div class="kpi-icon">📁</div><div class="kpi-label">전체 프로젝트</div><div class="kpi-value">5</div><div class="kpi-sub">진행 중</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">📊</div><div class="kpi-label">평균 진행률</div><div class="kpi-value">39<span style="font-size:16px;">%</span></div><div class="kpi-sub">전체 평균</div></div>
+      <div class="kpi-card yellow"><div class="kpi-icon">⚠️</div><div class="kpi-label">주의 필요</div><div class="kpi-value">2</div><div class="kpi-sub">지연 위험</div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">✅</div><div class="kpi-label">완료 마일스톤</div><div class="kpi-value">3</div><div class="kpi-sub">이번 달</div></div>
+    </div>
+    <div class="proj-card">
+      <div class="proj-card-header">
+        <div><div class="proj-card-title">📣 SNS 광고 캠페인 (B안)</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">A/B 테스트 완료 · 영상형 B안으로 확정</div></div>
+        <span class="proj-card-status status-on">진행 중</span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:72%;background:var(--accent);"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted);"><span>72% 완료</span><span>영상 광고 3개 제작 중</span></div>
+      <div class="proj-meta">
+        <div class="proj-meta-item">담당 <span>박사원</span></div>
+        <div class="proj-meta-item">마감 <span>4월 7일</span></div>
+        <div class="proj-meta-item">클릭률 <span>B안 2.3배↑</span></div>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="proj-card-header">
+        <div><div class="proj-card-title">🤝 인플루언서 협업</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">3곳 제안서 발송 · 1곳 회신 (푸드스타일리 김OO)</div></div>
+        <span class="proj-card-status status-warn">주의</span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:35%;background:var(--purple);"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted);"><span>35% 완료</span><span>미팅 일정 협의 중</span></div>
+      <div class="proj-meta">
+        <div class="proj-meta-item">담당 <span>이과장</span></div>
+        <div class="proj-meta-item">마감 <span>4월 3일 ⚠️</span></div>
+        <div class="proj-meta-item">회신률 <span>1/3</span></div>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="proj-card-header">
+        <div><div class="proj-card-title">🎯 3월 프로모션 기획</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">초안 작성 완료 · 다음 회의 검토 예정</div></div>
+        <span class="proj-card-status status-on">진행 중</span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:55%;background:var(--orange);"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted);"><span>55% 완료</span><span>팀 검토 대기</span></div>
+      <div class="proj-meta">
+        <div class="proj-meta-item">담당 <span>김대리</span></div>
+        <div class="proj-meta-item">마감 <span>4월 1일</span></div>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="proj-card-header">
+        <div><div class="proj-card-title">🔍 경쟁사 분석 리포트</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">C사 신규 캠페인 분석 착수</div></div>
+        <span class="proj-card-status status-warn">주의</span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:20%;background:var(--red);"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted);"><span>20% 완료</span><span>분석 초기 단계</span></div>
+      <div class="proj-meta">
+        <div class="proj-meta-item">담당 <span>박사원</span></div>
+        <div class="proj-meta-item">마감 <span>4월 10일</span></div>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="proj-card-header">
+        <div><div class="proj-card-title">🚀 4월 신제품 런칭</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">3월 넷째 주 티저 시작 결정 · 예산 조정 검토 중</div></div>
+        <span class="proj-card-status status-early">초기</span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:10%;background:var(--green);"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted);"><span>10% 완료</span><span>티저 일정 수립 단계</span></div>
+      <div class="proj-meta">
+        <div class="proj-meta-item">담당 <span>정팀장</span></div>
+        <div class="proj-meta-item">런칭 <span>4월 중</span></div>
+        <div class="proj-meta-item">추가예산 <span>200만원 요청 예정</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ 캘린더 ════ -->
+  <section class="page" id="page-calendar">
+    <div class="page-header">
+      <div><h1>📅 캘린더</h1><div class="greeting">2026년 4월</div></div>
+      <div class="avatar">정</div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">◀ 2026년 4월 ▶</div>
+        <span class="card-badge badge-green">이번 달</span>
+      </div>
+      <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
+    </div>
+    <div class="card" style="margin-top:20px;">
+      <div class="card-header"><div class="card-title"><span>📌</span> 이번 달 주요 일정</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px;" id="event-list">
+        <div class="event-card ev-red" style="padding:12px;border-radius:8px;border-left-width:4px;">
+          <div class="event-title">📣 3월 프로모션 기획안 최종 마감</div>
+          <div class="event-time">4월 1일 (수) · 18:00 · 담당: 김대리</div>
+        </div>
+        <div class="event-card ev-red" style="padding:12px;border-radius:8px;border-left-width:4px;">
+          <div class="event-title">🤝 인플루언서 미팅 확정 마감</div>
+          <div class="event-time">4월 3일 (금) · 종일 · 담당: 이과장</div>
+        </div>
+        <div class="event-card ev-yellow" style="padding:12px;border-radius:8px;border-left-width:4px;">
+          <div class="event-title">🎬 영상 광고 3개 납품</div>
+          <div class="event-time">4월 7일 (월) · 담당: 박사원</div>
+        </div>
+        <div class="event-card ev-purple" style="padding:12px;border-radius:8px;border-left-width:4px;">
+          <div class="event-title">🔍 경쟁사 분석 리포트 완료</div>
+          <div class="event-time">4월 10일 (금) · 담당: 박사원</div>
+        </div>
+        <div class="event-card" style="padding:12px;border-radius:8px;border-left-width:4px;">
+          <div class="event-title">📣 4월 신제품 런칭 시작</div>
+          <div class="event-time">4월 중 · 담당: 정팀장 · 예산 조정 필요</div>
+        </div>
+        <div class="event-card ev-green" style="padding:12px;border-radius:8px;border-left-width:4px;">
+          <div class="event-title">📅 마케팅팀 월간 회의</div>
+          <div class="event-time">4월 13일 (월) · 오전 10:00</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ 팀 현황 ════ -->
+  <section class="page" id="page-team">
+    <div class="page-header">
+      <div><h1>👥 팀 현황</h1><div class="greeting">마케팅팀 · 4명 · 3월 9일 회의 기준</div></div>
+      <div class="avatar">정</div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card blue"><div class="kpi-icon">👤</div><div class="kpi-label">팀원 수</div><div class="kpi-value">4</div><div class="kpi-sub">마케팅팀</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-label">완료 업무</div><div class="kpi-value">3</div><div class="kpi-sub">이번 주</div></div>
+      <div class="kpi-card yellow"><div class="kpi-icon">⏳</div><div class="kpi-label">진행 업무</div><div class="kpi-value">6</div><div class="kpi-sub">이번 주</div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">🏆</div><div class="kpi-label">이번 주 MVP</div><div class="kpi-value" style="font-size:16px;">김대리</div><div class="kpi-sub">기획안 초안 완료</div></div>
+    </div>
+    <div class="team-grid">
+      <div class="member-card">
+        <div class="member-top">
+          <div class="member-avatar" style="background:linear-gradient(135deg,#58a6ff,#1a6bc0);">정</div>
+          <div><div class="member-name">정팀장</div><div class="member-role">마케팅팀 팀장</div></div>
+        </div>
+        <div class="member-tasks">
+          <div class="member-task">📅 4월 신제품 티저 일정 확정</div>
+          <div class="member-task">💰 영상 제작비 예산 조정 검토</div>
+          <div class="member-task done">🗂 주간 회의 진행</div>
+        </div>
+      </div>
+      <div class="member-card">
+        <div class="member-top">
+          <div class="member-avatar" style="background:linear-gradient(135deg,#bc8cff,#6b3fa0);">이</div>
+          <div><div class="member-name">이과장</div><div class="member-role">마케팅 과장</div></div>
+        </div>
+        <div class="member-tasks">
+          <div class="member-task">🤝 인플루언서 미팅 일정 확정</div>
+          <div class="member-task done">📧 인플루언서 제안서 3곳 발송</div>
+          <div class="member-task done">📊 A/B 테스트 결과 정리</div>
+        </div>
+      </div>
+      <div class="member-card">
+        <div class="member-top">
+          <div class="member-avatar" style="background:linear-gradient(135deg,#ffa657,#c05621);">김</div>
+          <div><div class="member-name">김대리</div><div class="member-role">마케팅 대리</div></div>
+        </div>
+        <div class="member-tasks">
+          <div class="member-task done">📝 3월 프로모션 기획안 초안 작성</div>
+          <div class="member-task">💸 영상 제작비 예산 요청서 작성</div>
+          <div class="member-task done">📰 블로그 콘텐츠 3건 발행</div>
+        </div>
+      </div>
+      <div class="member-card">
+        <div class="member-top">
+          <div class="member-avatar" style="background:linear-gradient(135deg,#3fb950,#1a6b2a);">박</div>
+          <div><div class="member-name">박사원</div><div class="member-role">마케팅 사원</div></div>
+        </div>
+        <div class="member-tasks">
+          <div class="member-task">🎬 영상 광고 3개 추가 제작</div>
+          <div class="member-task">🔍 경쟁사 C사 캠페인 분석</div>
+          <div class="member-task done">🎬 B안 영상 광고 시안 제작</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ 설정 ════ -->
+  <section class="page" id="page-settings">
+    <div class="page-header">
+      <div><h1>⚙️ 설정</h1><div class="greeting">대시보드 환경 설정</div></div>
+      <div class="avatar">정</div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-title">👤 사용자 정보</div>
+      <div class="setting-row">
+        <div><div class="setting-label">이름</div><div class="setting-desc">대시보드에 표시될 이름</div></div>
+        <input class="todo-input" value="정팀장" style="width:160px;padding:7px 12px;">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">팀</div><div class="setting-desc">소속 팀명</div></div>
+        <input class="todo-input" value="마케팅팀" style="width:160px;padding:7px 12px;">
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-title">🔔 알림 설정</div>
+      <div class="setting-row">
+        <div><div class="setting-label">마감일 알림</div><div class="setting-desc">할 일 마감 하루 전 알림</div></div>
+        <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">주간 리포트</div><div class="setting-desc">매주 월요일 업무 현황 요약</div></div>
+        <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">매출 이상 감지</div><div class="setting-desc">전주 대비 30% 이상 변동 시 알림</div></div>
+        <div class="toggle" onclick="this.classList.toggle('on')"></div>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-title">🎨 화면 설정</div>
+      <div class="setting-row">
+        <div><div class="setting-label">시작 화면</div><div class="setting-desc">앱 실행 시 첫 화면</div></div>
+        <select class="setting-select">
+          <option>대시보드</option>
+          <option>할 일 관리</option>
+          <option>매출 분석</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">날짜 형식</div><div class="setting-desc">날짜 표시 방식</div></div>
+        <select class="setting-select">
+          <option>YYYY년 MM월 DD일</option>
+          <option>YYYY-MM-DD</option>
+          <option>MM/DD/YYYY</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">사이드바 자동 접기</div><div class="setting-desc">작은 화면에서 자동으로 접기</div></div>
+        <div class="toggle" onclick="this.classList.toggle('on')"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ── 네비게이션 ── */
+document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+  item.addEventListener('click', () => {
+    const target = item.dataset.page;
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + target).classList.add('active');
+    if (target === 'sales') initSalesCharts();
+    if (target === 'calendar') initCalendar();
+    if (target === 'todo') renderFullTodo();
+  });
+});
+
+/* ── 시계 ── */
+function updateClock() {
+  const now = new Date();
+  const days = ['일','월','화','수','목','금','토'];
+  document.getElementById('sidebar-date').textContent =
+    `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 (${days[now.getDay()]})`;
+  document.getElementById('sidebar-time').textContent = now.toTimeString().slice(0,5);
+}
+updateClock(); setInterval(updateClock, 1000);
+
+/* ── 할 일 데이터 ── */
+let todos = [
+  { id:1, text:'영상 광고 3개 추가 제작', priority:'high',   done:false, who:'박사원' },
+  { id:2, text:'인플루언서 미팅 일정 확정', priority:'high',   done:false, who:'이과장' },
+  { id:3, text:'3월 프로모션 기획안 초안 작성', priority:'high',   done:true,  who:'김대리' },
+  { id:4, text:'경쟁사 C사 신규 캠페인 분석', priority:'medium', done:false, who:'박사원' },
+  { id:5, text:'4월 신제품 티저 시작일 확정', priority:'medium', done:false, who:'정팀장' },
+  { id:6, text:'영상 제작비 추가 예산 요청서 작성', priority:'low', done:false, who:'김대리' },
+];
+let nextId = 7;
+let currentFilter = 'all';
+
+function renderTodoList(containerId, list) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px;font-size:13px;">할 일이 없습니다 🎉</div>';
+    return;
+  }
+  list.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'todo-item' + (t.done ? ' done' : '');
+    div.innerHTML = `
+      <div class="todo-check ${t.done?'checked':''}" onclick="toggleTodo(${t.id})">${t.done?'✓':''}</div>
+      <div class="todo-text">${t.text}</div>
+      <div class="todo-meta">
+        <div class="priority-dot p-${t.priority}"></div>
+        <span class="assignee">${t.who}</span>
+        <button class="del-btn" onclick="deleteTodo(${t.id})">✕</button>
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+function renderDashTodo() {
+  const sorted = [...todos].sort((a,b) => ({high:0,medium:1,low:2}[a.priority] - {high:0,medium:1,low:2}[b.priority]));
+  renderTodoList('dash-todo-list', sorted);
+  const done = todos.filter(t=>t.done).length;
+  document.getElementById('dash-todo-count').textContent = todos.length + '개';
+  document.getElementById('kpi-done').innerHTML = `${done}<span style="font-size:14px;font-weight:400;"> / ${todos.length}</span>`;
+}
+
+function renderFullTodo() {
+  const order = {high:0,medium:1,low:2};
+  let list = [...todos].sort((a,b) => order[a.priority] - order[b.priority]);
+  if (currentFilter === 'done')   list = list.filter(t => t.done);
+  else if (currentFilter !== 'all') list = list.filter(t => t.priority === currentFilter && !t.done);
+  renderTodoList('full-todo-list', list);
+  const done = todos.filter(t=>t.done).length;
+  const high = todos.filter(t=>t.priority==='high' && !t.done).length;
+  document.getElementById('t-total').textContent = todos.length;
+  document.getElementById('t-done').textContent  = done;
+  document.getElementById('t-going').textContent = todos.length - done;
+  document.getElementById('t-high').textContent  = high;
+}
+
+function toggleTodo(id) {
+  const t = todos.find(t=>t.id===id);
+  if (t) t.done = !t.done;
+  renderDashTodo();
+  renderFullTodo();
+}
+
+function deleteTodo(id) {
+  todos = todos.filter(t=>t.id!==id);
+  renderDashTodo();
+  renderFullTodo();
+}
+
+function addTodo(source) {
+  const inputId = source === 'dash' ? 'dash-todo-input' : 'todo-input2';
+  const selId   = source === 'dash' ? 'dash-priority'   : 'priority-select2';
+  const input   = document.getElementById(inputId);
+  const priority = document.getElementById(selId).value;
+  const text = input.value.trim();
+  if (!text) return;
+  todos.push({ id: nextId++, text, priority, done: false, who: '나' });
+  input.value = '';
+  renderDashTodo();
+  renderFullTodo();
+}
+
+function filterTodo(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderFullTodo();
+}
+
+['dash-todo-input','todo-input2'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', e => { if (e.key==='Enter') addTodo(id.startsWith('dash')?'dash':'full'); });
+});
+
+/* ── 프로젝트 진행률 (대시보드) ── */
+const projects = [
+  { name:'SNS 광고 캠페인 (B안)', pct:72, color:'#58a6ff', sub:'영상 광고 3개 제작 중' },
+  { name:'인플루언서 협업', pct:35, color:'#bc8cff', sub:'미팅 일정 협의 중' },
+  { name:'3월 프로모션 기획', pct:55, color:'#ffa657', sub:'기획안 초안 완료' },
+  { name:'경쟁사 분석 리포트', pct:20, color:'#f85149', sub:'C사 캠페인 분석 시작' },
+  { name:'4월 신제품 런칭', pct:10, color:'#3fb950', sub:'티저 일정 수립 단계' },
+];
+const projList = document.getElementById('dash-project-list');
+projects.forEach(p => {
+  projList.innerHTML += `<div class="project-item">
+    <div class="project-top"><span class="project-name">${p.name}</span><span class="project-pct">${p.pct}%</span></div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${p.pct}%;background:${p.color};"></div></div>
+    <div class="project-sub">${p.sub}</div>
+  </div>`;
+});
+
+/* ── 주간 일정 ── */
+const weekDays = [
+  { day:'MON', date:30, events:[{title:'주간 업무 킥오프',time:'10:00',cls:''},{title:'블로그 콘텐츠 검토',time:'14:00',cls:'ev-green'}]},
+  { day:'TUE', date:31, events:[{title:'영상 광고 1차 시안',time:'11:00',cls:'ev-yellow'}]},
+  { day:'WED', date:1,  isToday:true, events:[{title:'프로모션 기획안 마감',time:'18:00 ⚠️',cls:'ev-red'},{title:'팀 스탠드업',time:'09:30',cls:''}]},
+  { day:'THU', date:2,  events:[{title:'경쟁사 분석 중간보고',time:'15:00',cls:'ev-purple'}]},
+  { day:'FRI', date:3,  events:[{title:'인플루언서 미팅 마감',time:'종일 ⚠️',cls:'ev-red'},{title:'주간 회의',time:'10:00',cls:''}]},
+  { day:'SAT', date:4,  events:[]},
+  { day:'SUN', date:5,  events:[]},
+];
+const wg = document.getElementById('week-grid');
+weekDays.forEach(d => {
+  const evHTML = d.events.map(e=>`<div class="event-card ${e.cls}"><div class="event-title">${e.title}</div><div class="event-time">${e.time}</div></div>`).join('');
+  wg.innerHTML += `<div class="day-col ${d.isToday?'today':''}">
+    <div class="day-header"><div class="day-name">${d.day}</div><div class="day-num">${d.date}</div></div>
+    ${evHTML||'<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:6px;">-</div>'}
+  </div>`;
+});
+
+/* ── 대시보드 차트 ── */
+new Chart(document.getElementById('salesChart'), {
+  type:'bar',
+  data:{ labels:['무선이어폰','텀블러','블루투스스피커','보조배터리','에코백','무선충전기'],
+         datasets:[{ data:[2884,1153,960,903,617,585], backgroundColor:['#58a6ff','#3fb950','#bc8cff','#ffa657','#39d353','#f0883e'], borderRadius:6, borderSkipped:false }]},
+  options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'#21262d'}}, y:{ticks:{color:'#8b949e',font:{size:10},callback:v=>v+'만'},grid:{color:'#21262d'}} }}
+});
+new Chart(document.getElementById('trendChart'), {
+  type:'line',
+  data:{ labels:['1/5','1/8','1/12','1/15','1/19','1/22','1/26','2/1','2/5','2/10'],
+         datasets:[{ data:[708,841,414,812,506,903,467,1011,620,820], borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.08)', fill:true, tension:0.4, pointRadius:3, pointBackgroundColor:'#58a6ff' }]},
+  options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#8b949e',font:{size:9}},grid:{display:false}}, y:{display:false} }}
+});
+
+/* ── 매출 분석 차트 (지연 초기화) ── */
+let salesChartsInited = false;
+function initSalesCharts() {
+  if (salesChartsInited) return;
+  salesChartsInited = true;
+  new Chart(document.getElementById('salesChart2'), {
+    type:'bar',
+    data:{ labels:['무선이어폰','텀블러','블루투스스피커','보조배터리','에코백','무선충전기'],
+           datasets:[{ data:[2884,1153,960,903,617,585], backgroundColor:['#58a6ff','#3fb950','#bc8cff','#ffa657','#39d353','#f0883e'], borderRadius:6, borderSkipped:false }]},
+    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#8b949e',font:{size:10},callback:v=>v+'만'},grid:{color:'#21262d'}}, y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'#21262d'}} }}
+  });
+  new Chart(document.getElementById('catChart'), {
+    type:'doughnut',
+    data:{ labels:['전자기기','생활용품'],
+           datasets:[{ data:[5332,1769], backgroundColor:['#58a6ff','#3fb950'], borderWidth:2, borderColor:'#161b22' }]},
+    options:{ plugins:{ legend:{position:'bottom',labels:{color:'#8b949e',font:{size:12}}},
+              tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed.toLocaleString()}만원`}}}, cutout:'60%' }
+  });
+  new Chart(document.getElementById('trendChart2'), {
+    type:'line',
+    data:{ labels:['1/5','1/8','1/12','1/15','1/19','1/22','1/26','2/1','2/5','2/10'],
+           datasets:[{ label:'일별 매출', data:[708,841,414,812,506,903,467,1011,620,820], borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.1)', fill:true, tension:0.4, pointRadius:4, pointBackgroundColor:'#58a6ff' }]},
+    options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}}, y:{ticks:{color:'#8b949e',callback:v=>v+'만'},grid:{color:'#21262d'}} }}
+  });
+}
+
+/* ── 캘린더 ── */
+let calInited = false;
+function initCalendar() {
+  if (calInited) return;
+  calInited = true;
+  const grid = document.getElementById('cal-grid');
+  const headers = ['일','월','화','수','목','금','토'];
+  headers.forEach(h => { grid.innerHTML += `<div style="text-align:center;font-size:11px;color:var(--muted);padding:6px 0;font-weight:700;">${h}</div>`; });
+  const events = { 1:'마감⚠️', 3:'인플루언서', 7:'영상납품', 10:'경쟁사분석', 13:'월간회의', 20:'중간점검', 28:'런칭준비' };
+  // April 2026 starts on Wednesday (day index 3 = Wed, but 0=Sun so Wed=4)
+  const startDay = 3; // Wed = index 3 in 0-Sun format
+  for (let i = 0; i < startDay; i++) { grid.innerHTML += '<div></div>'; }
+  for (let d = 1; d <= 30; d++) {
+    const isToday = d === 1;
+    const hasEvent = events[d];
+    const dayOfWeek = (startDay + d - 1) % 7;
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    grid.innerHTML += `<div style="text-align:center;padding:6px 4px;border-radius:8px;background:${isToday?'rgba(88,166,255,0.15)':hasEvent?'rgba(255,255,255,0.03)':'transparent'};border:1px solid ${isToday?'var(--accent)':'transparent'};">
+      <div style="font-size:13px;font-weight:${isToday?'700':'400'};color:${isToday?'var(--accent)':isWeekend?'var(--red)':'var(--text)'}">${d}</div>
+      ${hasEvent?`<div style="font-size:9px;color:${d===1||d===3?'var(--red)':'var(--muted)'};margin-top:2px;line-height:1.2;">${hasEvent}</div>`:''}
+    </div>`;
+  }
+}
+
+/* ── 초기 렌더링 ── */
+renderDashTodo();
+</script>
+</body>
+</html>

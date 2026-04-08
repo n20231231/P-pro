@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/psh/Downloads/워크숍-실습 -type f -not -path */.*)",
+      "Bash(file /Users/psh/Downloads/워크숍-실습/2-체험용-샘플/*.html)",
+      "Bash(find /Users/psh/Downloads/워크숍-실습 -type f -name *.csv -o -name *.txt)",
+      "WebSearch",
+      "WebFetch(domain:subtrac.kr)",
+      "mcp__Claude_Preview__preview_start",
+      "Read(//usr/local/**)",
+      "Read(//opt/homebrew/**)",
+      "Read(//Users/psh/.pyenv/**)",
+      "Bash(command -v python3.11)",
+      "Bash(command -v python3.12)",
+      "Read(//usr/bin/**)",
+      "Read(//System/Library/Frameworks/Python.framework/**)",
+      "Bash(git init:*)",
+      "Bash(git config:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

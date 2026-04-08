@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "보고서 미리보기",
+      "runtimeExecutable": "/usr/bin/python3",
+      "runtimeArgs": ["/tmp/serve_report.py"],
+      "port": 3000
+    }
+  ]
+}

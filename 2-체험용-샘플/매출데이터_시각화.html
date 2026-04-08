@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>매출 데이터 시각화</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      padding: 24px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      margin-bottom: 8px;
+      color: #1a1a2e;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 28px;
+    }
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .kpi .label { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .kpi .value { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+    .kpi .sub { font-size: 11px; color: #aaa; margin-top: 4px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .card h2 {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .chart-wrap {
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+
+<h1>매출 데이터 대시보드</h1>
+<p class="subtitle">2026-01-05 ~ 2026-02-10 | 총 30건 거래</p>
+
+<!-- KPI -->
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="label">총 매출액</div>
+    <div class="value">7,100만원</div>
+    <div class="sub">71,006,000원</div>
+  </div>
+  <div class="kpi">
+    <div class="label">총 판매 수량</div>
+    <div class="value">1,664개</div>
+    <div class="sub">30개 거래 합산</div>
+  </div>
+  <div class="kpi">
+    <div class="label">베스트 제품</div>
+    <div class="value">무선 이어폰</div>
+    <div class="sub">매출 비중 40.6%</div>
+  </div>
+  <div class="kpi">
+    <div class="label">최다 판매 지역</div>
+    <div class="value">서울</div>
+    <div class="sub">매출 비중 58.1%</div>
+  </div>
+</div>
+
+<!-- Row 1: 제품별 매출 (가로 막대) + 카테고리 파이 -->
+<div class="grid">
+  <div class="card">
+    <h2>제품별 매출액</h2>
+    <div class="chart-wrap"><canvas id="chartProduct"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>카테고리별 매출 비중</h2>
+    <div class="chart-wrap"><canvas id="chartCategory"></canvas></div>
+  </div>
+</div>
+
+<!-- Row 2: 지역별 + 날짜별 추이 -->
+<div class="grid">
+  <div class="card">
+    <h2>지역별 매출액</h2>
+    <div class="chart-wrap"><canvas id="chartRegion"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>날짜별 매출 추이</h2>
+    <div class="chart-wrap"><canvas id="chartTrend"></canvas></div>
+  </div>
+</div>
+
+<!-- Row 3: 제품별 수량 vs 매출 -->
+<div class="card" style="margin-bottom:20px;">
+  <h2>제품별 판매 수량 vs 매출액 비교</h2>
+  <div class="chart-wrap"><canvas id="chartCompare" style="max-height:280px;"></canvas></div>
+</div>
+
+<script>
+const colors = {
+  blue:   '#4361ee',
+  green:  '#2dc653',
+  orange: '#f77f00',
+  red:    '#e63946',
+  purple: '#7b2d8b',
+  teal:   '#2a9d8f',
+  yellow: '#f4a261',
+  gray:   '#adb5bd',
+};
+
+// 제품별 매출
+new Chart(document.getElementById('chartProduct'), {
+  type: 'bar',
+  data: {
+    labels: ['무선 이어폰','텀블러','블루투스 스피커','보조배터리','에코백','무선 충전기'],
+    datasets: [{
+      label: '매출액 (원)',
+      data: [28836000, 11525000, 9600000, 9030000, 6165000, 5850000],
+      backgroundColor: [colors.blue, colors.teal, colors.purple, colors.orange, colors.green, colors.yellow],
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        ticks: {
+          callback: v => (v/10000000).toFixed(1) + '천만'
+        }
+      }
+    }
+  }
+});
+
+// 카테고리 파이
+new Chart(document.getElementById('chartCategory'), {
+  type: 'doughnut',
+  data: {
+    labels: ['전자기기', '생활용품'],
+    datasets: [{
+      data: [53316000, 17690000],
+      backgroundColor: [colors.blue, colors.green],
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    plugins: {
+      legend: { position: 'bottom' },
+      tooltip: {
+        callbacks: {
+          label: ctx => {
+            const total = 71006000;
+            const pct = (ctx.parsed / total * 100).toFixed(1);
+            return ` ${(ctx.parsed/10000).toLocaleString()}만원 (${pct}%)`;
+          }
+        }
+      }
+    },
+    cutout: '60%',
+  }
+});
+
+// 지역별 매출
+new Chart(document.getElementById('chartRegion'), {
+  type: 'bar',
+  data: {
+    labels: ['서울', '대구', '부산'],
+    datasets: [{
+      label: '매출액',
+      data: [41277000, 15907000, 13822000],
+      backgroundColor: [colors.blue, colors.orange, colors.teal],
+      borderRadius: 8,
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      y: {
+        ticks: { callback: v => (v/10000000).toFixed(1)+'천만' }
+      }
+    }
+  }
+});
+
+// 날짜별 매출 추이
+new Chart(document.getElementById('chartTrend'), {
+  type: 'line',
+  data: {
+    labels: ['1/5','1/8','1/12','1/15','1/19','1/22','1/26','2/1','2/5','2/10'],
+    datasets: [{
+      label: '일별 매출합계',
+      data: [7075000, 8413000, 4135000, 8122000, 5060000, 9029000, 4665000, 10110000, 6195000, 8202000],
+      borderColor: colors.blue,
+      backgroundColor: 'rgba(67,97,238,0.1)',
+      fill: true,
+      tension: 0.4,
+      pointBackgroundColor: colors.blue,
+      pointRadius: 5,
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      y: {
+        ticks: { callback: v => (v/10000).toLocaleString()+'만' }
+      }
+    }
+  }
+});
+
+// 수량 vs 매출 비교 (그룹 바)
+new Chart(document.getElementById('chartCompare'), {
+  type: 'bar',
+  data: {
+    labels: ['무선 이어폰','텀블러','블루투스 스피커','보조배터리','에코백','무선 충전기'],
+    datasets: [
+      {
+        label: '판매 수량 (개)',
+        data: [324, 461, 80, 258, 411, 130],
+        backgroundColor: 'rgba(67,97,238,0.7)',
+        borderRadius: 4,
+        yAxisID: 'y1',
+      },
+      {
+        label: '매출액 (만원)',
+        data: [2884, 1153, 960, 903, 617, 585],
+        backgroundColor: 'rgba(42,157,143,0.7)',
+        borderRadius: 4,
+        yAxisID: 'y2',
+      }
+    ]
+  },
+  options: {
+    plugins: { legend: { position: 'top' } },
+    scales: {
+      y1: {
+        type: 'linear', position: 'left',
+        title: { display: true, text: '수량 (개)' }
+      },
+      y2: {
+        type: 'linear', position: 'right',
+        title: { display: true, text: '매출액 (만원)' },
+        grid: { drawOnChartArea: false }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
