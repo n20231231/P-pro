@@ -61,6 +61,24 @@
   ::-webkit-scrollbar { width:6px; }
   ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 
+  /* Gmail 스타일 */
+  .gmail-section { margin-top:20px; }
+  .gmail-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .gmail-auth-btn { background:var(--accent); color:#000; padding:10px 16px; border:none; border-radius:8px; cursor:pointer; font-weight:700; font-size:13px; transition:background 0.2s; }
+  .gmail-auth-btn:hover { background:#79c0ff; }
+  .gmail-logout-btn { background:var(--red); color:#fff; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-size:12px; }
+  .gmail-logout-btn:hover { background:#f0504a; }
+  .gmail-loading { color:var(--muted); font-size:13px; padding:16px; text-align:center; }
+  .gmail-error { background:#3a1d1f; border:1px solid var(--red); border-radius:8px; padding:12px; color:var(--red); font-size:13px; margin-bottom:12px; }
+  .email-list { display:flex; flex-direction:column; gap:10px; }
+  .email-item { background:var(--surface2); border-left:3px solid var(--accent); border-radius:8px; padding:12px; cursor:pointer; transition:background 0.2s; }
+  .email-item:hover { background:#1d222f; }
+  .email-from { font-weight:700; font-size:13px; color:var(--text); }
+  .email-subject { font-size:13px; color:var(--text); margin-top:3px; }
+  .email-snippet { font-size:12px; color:var(--muted); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .email-date { font-size:11px; color:var(--muted); margin-top:4px; }
+  .email-empty { color:var(--muted); font-size:13px; padding:16px; text-align:center; }
+
   @media (max-width:900px) {
     .grid-3, .grid-2 { grid-template-columns:1fr; }
     .header { flex-direction:column; align-items:flex-start; }
@@ -229,6 +247,19 @@
     </div>
   </div>
 
+  <!-- Gmail 이메일 -->
+  <div class="card gmail-section">
+    <div class="card-title">📧 Gmail</div>
+    <div class="gmail-header">
+      <div id="gmail-status" style="color:var(--muted); font-size:13px;">로그인하여 이메일을 확인하세요</div>
+      <button id="gmail-auth-btn" class="gmail-auth-btn" onclick="loginGmail()">Gmail 연동하기</button>
+      <button id="gmail-logout-btn" class="gmail-logout-btn" style="display:none;" onclick="logoutGmail()">로그아웃</button>
+    </div>
+    <div id="gmail-error" class="gmail-error" style="display:none;"></div>
+    <div id="gmail-loading" class="gmail-loading" style="display:none;">이메일을 불러오는 중...</div>
+    <div id="email-list" class="email-list"></div>
+  </div>
+
 </div>
 
 <script>
@@ -302,6 +333,210 @@ window.addEventListener('beforeinstallprompt', (e) => {
     });
   }
 });
+
+// ===== Gmail 로직 =====
+// 페이지 로드시 Gmail 상태 확인
+window.addEventListener('load', () => {
+  checkGmailAuth();
+});
+
+/**
+ * Gmail 로그인 상태 확인 및 UI 업데이트
+ */
+async function checkGmailAuth() {
+  try {
+    // 먼저 쿠키가 있는지 확인 (간단한 체크)
+    const hasCookie = document.cookie.includes('gmail_access_token');
+
+    if (hasCookie) {
+      // 이메일 목록 조회 시도
+      await fetchEmails();
+      updateGmailUI(true);
+    } else {
+      // 로그인 버튼만 표시
+      updateGmailUI(false);
+    }
+  } catch (error) {
+    console.error('Gmail 상태 확인 오류:', error);
+    updateGmailUI(false);
+  }
+}
+
+/**
+ * Gmail 로그인
+ */
+function loginGmail() {
+  // /api/auth로 이동 (Google OAuth 콘센트)
+  window.location.href = '/api/auth';
+}
+
+/**
+ * Gmail 로그아웃
+ */
+function logoutGmail() {
+  // 쿠키 삭제
+  document.cookie = 'gmail_access_token=; Path=/; Max-Age=0';
+  updateGmailUI(false);
+  document.getElementById('email-list').innerHTML = '';
+}
+
+/**
+ * Gmail 이메일 목록 조회
+ */
+async function fetchEmails() {
+  const loadingEl = document.getElementById('gmail-loading');
+  const errorEl = document.getElementById('gmail-error');
+  const listEl = document.getElementById('email-list');
+
+  try {
+    loadingEl.style.display = 'block';
+    errorEl.style.display = 'none';
+    listEl.innerHTML = '';
+
+    const response = await fetch('/api/emails', {
+      method: 'GET',
+      credentials: 'include' // 쿠키 포함
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+
+      // 토큰 만료 시 로그아웃
+      if (response.status === 401 && errorData.expired) {
+        logoutGmail();
+        showGmailError('로그인이 만료되었습니다. 다시 로그인해주세요.');
+        return;
+      }
+
+      throw new Error(errorData.error || '이메일 조회 실패');
+    }
+
+    const data = await response.json();
+    loadingEl.style.display = 'none';
+
+    if (!data.emails || data.emails.length === 0) {
+      listEl.innerHTML = '<div class="email-empty">📭 최근 이메일이 없습니다</div>';
+      return;
+    }
+
+    // 이메일 목록 렌더링
+    data.emails.forEach(email => {
+      const emailEl = document.createElement('div');
+      emailEl.className = 'email-item';
+
+      const fromName = extractEmailName(email.from);
+      const dateStr = formatEmailDate(email.date);
+
+      emailEl.innerHTML = `
+        <div class="email-from">${escapeHtml(fromName)}</div>
+        <div class="email-subject">${escapeHtml(email.subject)}</div>
+        ${email.snippet ? `<div class="email-snippet">${escapeHtml(email.snippet)}</div>` : ''}
+        <div class="email-date">${dateStr}</div>
+      `;
+
+      emailEl.addEventListener('click', () => {
+        window.open(`https://mail.google.com/mail/u/0/#inbox/${email.id}`, '_blank');
+      });
+
+      listEl.appendChild(emailEl);
+    });
+
+  } catch (error) {
+    console.error('Gmail 이메일 조회 오류:', error);
+    loadingEl.style.display = 'none';
+    showGmailError(error.message);
+  }
+}
+
+/**
+ * Gmail UI 업데이트
+ */
+function updateGmailUI(isLoggedIn) {
+  const authBtn = document.getElementById('gmail-auth-btn');
+  const logoutBtn = document.getElementById('gmail-logout-btn');
+  const statusEl = document.getElementById('gmail-status');
+
+  if (isLoggedIn) {
+    authBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-block';
+    statusEl.textContent = '✅ Gmail 연동됨';
+  } else {
+    authBtn.style.display = 'inline-block';
+    logoutBtn.style.display = 'none';
+    statusEl.textContent = '로그인하여 이메일을 확인하세요';
+  }
+}
+
+/**
+ * Gmail 에러 메시지 표시
+ */
+function showGmailError(message) {
+  const errorEl = document.getElementById('gmail-error');
+  errorEl.textContent = '❌ ' + message;
+  errorEl.style.display = 'block';
+}
+
+/**
+ * 이메일 주소에서 이름 추출
+ */
+function extractEmailName(emailString) {
+  // "Name <email@example.com>" 형식에서 이름 추출
+  const match = emailString.match(/^([^<]*)<[^>]*>$/) || emailString.match(/^([^<]*)</) || emailString.match(/^([^@]+)@/);
+  if (match && match[1]) {
+    return match[1].trim() || emailString;
+  }
+  return emailString;
+}
+
+/**
+ * Gmail 날짜 포맷팅
+ */
+function formatEmailDate(dateString) {
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+
+    // 1시간 이내
+    if (diff < 3600000) {
+      const mins = Math.floor(diff / 60000);
+      return mins === 0 ? '방금' : mins + '분 전';
+    }
+
+    // 24시간 이내
+    if (diff < 86400000) {
+      const hours = Math.floor(diff / 3600000);
+      return hours + '시간 전';
+    }
+
+    // 그 외
+    const days = Math.floor(diff / 86400000);
+    if (days < 7) {
+      return days + '일 전';
+    }
+
+    // 날짜 포맷
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}월 ${day}일`;
+  } catch {
+    return dateString;
+  }
+}
+
+/**
+ * HTML 이스케이프
+ */
+function escapeHtml(text) {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
 </script>
 </body>
 </html>

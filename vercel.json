@@ -1,0 +1,19 @@
+{
+  "buildCommand": "echo 'Build complete'",
+  "outputDirectory": ".",
+  "functions": {
+    "api/**/*.js": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  },
+  "env": ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REDIRECT_URI"],
+  "envs": {
+    "preview": {
+      "env": ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REDIRECT_URI"]
+    },
+    "production": {
+      "env": ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REDIRECT_URI"]
+    }
+  }
+}
